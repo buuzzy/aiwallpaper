@@ -62,7 +62,15 @@ export default function PromptInput() {
                 user_avatar: userAvatar,
                 img_size: data.data.img_size || "1792x1024",
                 user_email: userId || "",
-                llm_name: "dall-e-3"
+                llm_name: "dall-e-3",
+                llm_params: {
+                    model: "dall-e-3",
+                    prompt: prompt,
+                    n: 1,
+                    size: data.data.img_size || "1792x1024",
+                    quality: "standard",
+                    style: "natural"
+                }
             };
 
             // 添加到壁纸列表

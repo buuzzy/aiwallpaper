@@ -2,8 +2,8 @@ import OpenAI from "openai";
 
 export function getOpenAIClient(): OpenAI {
     return new OpenAI({
-        apiKey: "sk-ZDjyPa3L3I8q39GejNEUVTnWZ3tuSt0iA8TpEEVncvNFReLE",
-        baseURL: "https://xiaoai.plus/v1"
+        apiKey: process.env.OPENAI_API_KEY || "sk-ZDjyPa3L3I8q39GejNEUVTnWZ3tuSt0iA8TpEEVncvNFReLE",
+        baseURL: process.env.OPENAI_API_BASE_URL || "https://xiaoai.plus/v1"
     });
 }
 
