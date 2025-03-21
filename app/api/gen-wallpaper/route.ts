@@ -3,6 +3,7 @@ import { downloadAndUploadImage } from "@/lib/s3";
 import { Wallpaper } from "@/types/wallpaper";
 import { ImageGenerateParams } from "openai/resources/images.mjs";
 import { insertWallpaper } from "@/models/walpaper";
+import { auth, currentUser } from "@clerk/nextjs/server";
 
 // 响应类型定义
 type GenerateResponse = {
@@ -13,11 +14,32 @@ type GenerateResponse = {
         img_url: string;
         created_at: string;
         img_size: string;
+        user_name: string;
+        user_avatar: string;
     }
 };
 
 export async function POST(req: Request) {
     try {
+        // 获取用户认证信息
+        const authData = await auth();
+        const userId = authData.userId;
+        
+        // 获取更详细的用户信息
+        const user = await currentUser();
+        const userName = user?.firstName && user?.lastName 
+            ? `${user.firstName} ${user.lastName}` 
+            : user?.username || "AI User";
+        const userImage = user?.imageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`;
+        
+        // 检查用户是否已登录
+        if (!userId) {
+            return Response.json({ 
+                code: 401, 
+                message: "请先登录后再生成壁纸" 
+            }, { status: 401 });
+        }
+
         // 验证环境变量
         if (!process.env.AWS_BUCKET_NAME) {
             throw new Error("AWS_BUCKET_NAME is required");
@@ -32,42 +54,45 @@ export async function POST(req: Request) {
             }, { status: 400 });
         }
 
-        // 初始化 OpenAI 客户端
-        const client = getOpenAIClient();
-        
-        // 配置生成参数
-        const img_size = "1792x1024";
+        // 调用 OpenAI 生成图片
+        const openai = getOpenAIClient();
         const llm_name = "dall-e-3";
         const llm_params: ImageGenerateParams = {
+            model: "dall-e-3",
             prompt: description,
-            model: llm_name,
             n: 1,
-            size: img_size,
+            size: "1792x1024",
             quality: "standard",
-            style: "natural"
+            style: "natural",
         };
-
-        // 调用 OpenAI 生成图片
-        const response = await client.images.generate(llm_params);
-        if (!response?.data?.[0]?.url) {
-            throw new Error("Invalid response from image generation API");
+        
+        const response = await openai.images.generate(llm_params);
+        const imageUrl = response.data[0]?.url;
+        
+        if (!imageUrl) {
+            throw new Error("Failed to generate image");
         }
 
-        // 上传图片到 AWS S3
-        const s3Result = await downloadAndUploadImage(
-            response.data[0].url,
-            process.env.AWS_BUCKET_NAME,
-            `wallpapers/${Date.now()}-${Math.random().toString(36).slice(2)}.png`
-        );
-
-        if (!s3Result?.Location) {
-            throw new Error("Failed to get S3 upload URL");
+        // 下载并上传到 S3
+        const img_size = "1792x1024";
+        const s3Key = `wallpapers/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+        const s3Result = await downloadAndUploadImage(imageUrl, process.env.AWS_BUCKET_NAME, s3Key);
+        
+        // 检查 s3Result.Location 是否存在
+        if (!s3Result.Location) {
+            throw new Error("Failed to upload image to S3");
         }
-
+        
         // 准备数据库记录
         const now = new Date().toISOString();
+        
+        // 获取用户信息
+        const userEmail = userId; // 或者从 Clerk API 获取更多用户信息
+        
         const wallpaper: Wallpaper = {
-            user_email: "buuzzy@163.com", // TODO: 从认证系统获取用户邮箱
+            user_email: userId,
+            user_name: userName,
+            user_avatar: userImage,
             img_description: description,
             img_size,
             img_url: s3Result.Location,
@@ -79,7 +104,7 @@ export async function POST(req: Request) {
         // 保存到数据库
         await insertWallpaper(wallpaper);
 
-        // 返回成功响应
+        // 返回成功响应，包含用户信息
         return Response.json({
             code: 0,
             message: "success",
@@ -87,7 +112,9 @@ export async function POST(req: Request) {
                 img_description: description,
                 img_url: s3Result.Location,
                 created_at: now,
-                img_size
+                img_size,
+                user_name: userName,
+                user_avatar: userImage
             }
         } as GenerateResponse);
 

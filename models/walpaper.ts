@@ -14,13 +14,15 @@ export async function insertWallpaper(wallpaper: Wallpaper) {
     
     const res = await db.query(
       `INSERT INTO wallpapers 
-          (user_email, img_description, img_size, img_url, llm_name, llm_params, created_at) 
+          (user_email, user_name, user_avatar, img_description, img_size, img_url, llm_name, llm_params, created_at) 
           VALUES 
-          ($1, $2, $3, $4, $5, $6, $7)
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           RETURNING id
       `,
       [
         wallpaper.user_email,
+        wallpaper.user_name,
+        wallpaper.user_avatar,
         wallpaper.img_description,
         wallpaper.img_size,
         wallpaper.img_url,
@@ -124,13 +126,15 @@ export function formatWallpaper(row: QueryResultRow): Wallpaper | undefined {
     llm_name: row.llm_name,
     llm_params: row.llm_params,
     created_at: row.created_at,
+    user_name: row.user_name || "AI User",
+    user_avatar: row.user_avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + (row.user_email || "AI")
   };
 
   if (row.user_name || row.user_avatar) {
     wallpaper.created_user = {
       email: row.user_email,
-      nickname: row.user_name,
-      avatar_url: row.user_avatar,
+      nickname: row.user_name || "AI User",
+      avatar_url: row.user_avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + (row.user_email || "AI")
     };
   }
 

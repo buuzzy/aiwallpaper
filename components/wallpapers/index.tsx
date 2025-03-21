@@ -8,6 +8,16 @@ import Pagination from '@/components/pageination';
 const WallpaperCard = ({ wallpaper }: { wallpaper: Wallpaper }) => {
   const [imageError, setImageError] = useState(false);
 
+  // 确保始终有用户头像，使用用户邮箱作为种子生成默认头像
+  const avatarUrl = wallpaper.user_avatar || 
+                   (wallpaper.created_user?.avatar_url) || 
+                   `https://api.dicebear.com/7.x/avataaars/svg?seed=${wallpaper.user_email || "AI"}`;
+  
+  // 确保始终有用户名
+  const userName = wallpaper.user_name || 
+                  (wallpaper.created_user?.nickname) || 
+                  "AI User";
+
   return (
     <div className="group relative bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
       <div className="aspect-[16/9] overflow-hidden bg-gray-100 relative">
@@ -33,11 +43,11 @@ const WallpaperCard = ({ wallpaper }: { wallpaper: Wallpaper }) => {
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-center space-x-1">
             <img 
-              src={wallpaper.user_avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=AI"}
+              src={avatarUrl}
               alt="Avatar"
               className="w-5 h-5 rounded-full"
             />
-            <p className="text-xs text-gray-500">{wallpaper.user_name || "AI"}</p>
+            <p className="text-xs text-gray-500">{userName}</p>
           </div>
           <p className="text-xs text-gray-400">{new Date(wallpaper.created_at || '').toLocaleDateString()}</p>
         </div>
